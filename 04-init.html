@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript 系列八：第4課 ── 行事曆應用程式(僅支援單日事件)</title>
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/jquery-datetime-picker@2.5.11/jquery.datetimepicker.min.css">
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+        }
+
+        #wrap {
+            width: 100%;
+            margin: auto;
+        }
+
+        .main,
+        #calendar {
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        button {
+            display: block;
+            margin: auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            border: none;
+            background-color: #2a9d8f;
+            color: #fff;
+        }
+
+        .modal {
+            display: none;
+            background-color: rgba(200, 200, 200, .7);
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            position: fixed;
+            z-index: 1;
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .new-event-modal {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            background-color: #2c3e50;
+            border-radius: 5px;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .new-event-modal.active {
+            display: flex;
+        }
+
+        .new-event-modal>* {
+            margin: 10px;
+        }
+
+        .new-event-modal label {
+            font-size: 18px;
+            align-self: start;
+        }
+
+        .new-event-modal .must-fill {
+            color: #f00;
+            vertical-align: top;
+            margin-right: 5px;
+        }
+
+        .new-event-modal input {
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        .new-event-modal .warn {
+            align-self: start;
+            color: #f00;
+            font-weight: 900;
+            margin: 0 10px;
+            display: none;
+        }
+
+        .new-event-modal .warn.active {
+            display: block;
+        }
+
+        .new-event-modal .close-btn {
+            padding: 0;
+            text-align: center;
+            width: 30px;
+            height: 30px;
+            font-weight: 900;
+            line-height: 30px;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+
+        .fc-event {
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <h1 style="text-align: center; line-height: 70px;">JavaScript 系列八：第4課 ── 行事曆應用程式(僅支援單日事件)</h1>
+
+    <div id="wrap">
+        <!-- <div class="main"> -->
+        <!-- <button @click="openNewEventModal">新增活動</button> -->
+        <div id='calendar' ref="calendar">
+        </div>
+        <!-- </div> -->
+        <div class="modal" :class="{active: newEventModalOpen}" ref="modal">
+            <div class="new-event-modal" :class="{active: newEventModalOpen}" ref="newEventModal">
+                <h2>新增活動</h2>
+                <label for="eventName"><span class="must-fill">*</span>活動名稱</label>
+                <input type="text" name="" id="eventName" v-model="eventName" placeholder="請輸入活動名稱">
+                <p class="warn">必填</p>
+
+                <label for="datetimepicker"><span class="must-fill">*</span>活動日期與時間</label>
+
+                <!-- 不可在datetimepicker使用v-model，因為先選擇時間，再輸入活動名稱，選好的時間會跳掉 -->
+                <input type="text" name="" id="datetimepicker" ref="datetimepicker" placeholder="請選擇活動日期與時間">
+                <p class="warn">必填</p>
+
+                <button @click="submit">新增</button>
+
+                <button @click="closeWindow" class="close-btn">X</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- full calendar  -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    <!-- JQ，為了datetimepicker必須搭配使用 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+        integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- datetimepicker -->
+
+    <!-- 時間選取(時&分)以當下時間+-預設step的datetimepicker版本 -->
+    <!-- <script
+        src="https://cdn.jsdelivr.net/npm/jquery-datetime-picker@2.5.11/build/jquery.datetimepicker.full.min.js"></script> -->
+
+    <!-- 時間選取(時&分)以整點為預設+-step的datetimepicker版本 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-datetimepicker/2.5.20/jquery.datetimepicker.full.min.js"
+        integrity="sha512-AIOTidJAcHBH2G/oZv9viEGXRqDNmfdPVPYOYKGy3fti0xIplnlgMHUGfuNRzC6FkzIo0iIxgFnr9RikFxK+sw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    eventName: null,
+                    // 不可在datetimepicker使用v-model，因為先選擇時間，再輸入活動名稱，選好的時間會跳掉
+                    // datetimepicker: null,
+                    events: [],
+                    newEventModalOpen: false,
+                    createdCount: 0,
+                    calendar: null
+                }
+            },
+            watch: {
+                events: {
+                    handler(newValue, oldValue) {
+                        localStorage.setItem('events', JSON.stringify(this.events));
+                    },
+                    deep: true
+                },
+            },
+            methods: {
+                openNewEventModal() {
+                    this.newEventModalOpen = true;
+                },
+                submit() {
+                    // 初始化驗證
+                    let isValidInput = true;
+                    this.$refs.newEventModal.querySelector('#eventName').nextSibling.classList.remove('active');
+                    this.$refs.newEventModal.querySelector('#datetimepicker').nextSibling.classList.remove('active');
+
+                    // 表單驗證
+                    if (this.eventName === '' || this.eventName === null) {
+                        alert('請輸入活動名稱');
+                        this.$refs.newEventModal.querySelector('#eventName').nextSibling.classList.add('active');
+                        isValidInput = false;
+                    }
+                    if (this.$refs.datetimepicker.value === '' || this.$refs.datetimepicker.value === null) {
+                        alert('請選擇活動日期與時間');
+                        this.$refs.newEventModal.querySelector('#datetimepicker').nextSibling.classList.add('active');
+                        isValidInput = false;
+                    }
+
+                    if (isValidInput) {
+                        let newEvent = {
+                            id: ++this.createdCount,
+                            title: this.eventName,
+                            start: this.$refs.datetimepicker.value
+                        }
+
+                        this.events.push(newEvent);
+
+                        this.calendar.addEvent(newEvent);
+
+                        this.closeWindow();
+
+                    }
+                    console.log(this.events);
+                },
+                deleteEvent(info) {
+                    // question會得到confirm的返回值，確定 (true) 或是取消 (false)
+                    let question = confirm('是否刪除此筆活動？');
+                    console.log(info.event.id)
+                    if (question) {
+                        for (let index in this.events) {
+                            if (this.events[index].id === parseInt(info.event.id)) {
+                                // console.log(typeof this.events[index].id) // number
+                                // console.log(typeof info.event.id) // string
+                                this.events.splice(index, 1);
+                                info.event.remove();
+                            }
+                        }
+                    }
+                },
+                closeWindow() {
+                    this.eventName = null;
+                    this.$refs.datetimepicker.value = null;
+
+                    this.newEventModalOpen = false;
+                    console.log(this.events)
+                }
+            },
+            mounted() {
+                // if (localStorage.getItem('events')) {
+                //     this.events = JSON.parse(localStorage.getItem('events'));
+                // }
+                // else {
+                //     this.events = [];
+                // }
+
+                // full calendar
+                this.calendar = new FullCalendar.Calendar(this.$refs.calendar, {
+                    initialView: 'dayGridMonth',
+                    businessHours: [
+                        { daysOfWeek: [1, 2, 3, 4, 5] }
+                    ],
+                    headerToolbar: {
+                        left: 'prev,next today addNewEventButton',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    },
+                    // events: this.events,
+                    // 或寫成Logical OR assignment，就可以省略if-else語句
+                    events: this.events = JSON.parse(localStorage.getItem('events')) || [],
+                    customButtons: {
+                        addNewEventButton: {
+                            text: '新增活動',
+                            click: this.openNewEventModal
+                        }
+                    },
+                    eventClick: this.deleteEvent
+                });
+                this.calendar.render();
+
+                // datetimepicker
+                $('#datetimepicker').datetimepicker({
+                    format: 'Y-m-d H:i',
+                    step: 30
+                });
+            }
+        }).mount('#wrap');
+    </script>
+
+    <script>
+
+
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript系列八：第2課 ── 筆記應用程式</title>
+
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+        }
+
+        #wrap {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+        }
+
+        .notes-list {
+            width: 100%;
+            height: 100vh;
+            min-height: auto;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            order: 2;
+            background-color: #4c956c;
+            z-index: 1;
+            box-shadow: 0px -5px 5px #666;
+        }
+
+        .notes-list .title {
+            text-align: center;
+            height: 50px;
+            line-height: 50px;
+            flex-shrink: 0;
+            font-size: 20px;
+            color: #fefee3;
+        }
+
+        .notes-list ul {
+            text-align: justify;
+            overflow-y: auto;
+        }
+
+        .notes-list ul::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .notes-list ul::-webkit-scrollbar-track {
+            background-color: transparent;
+            border-radius: 5px;
+        }
+
+        .notes-list ul::-webkit-scrollbar-thumb {
+            background-color: rgba(200, 200, 200, .5);
+            border-radius: 5px;
+            transition: .5s;
+        }
+
+        .notes-list ul::-webkit-scrollbar-thumb:hover {
+            background-color: #fefee3;
+        }
+
+        .notes-list ul li {
+            cursor: pointer;
+            list-style-type: none;
+            background-color: transparent;
+            margin: 10px;
+            position: relative;
+            font-size: 18px;
+
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .notes-list ul li p {
+            width: 100%;
+            height: 40px;
+            line-height: 40px;
+            padding: 0 20px;
+            background-color: #fefee3;
+            border-radius: 5px 0 0 5px;
+            color: #4c956c;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .notes-list ul li.pointer p {
+            border-left: 10px solid #f95738;
+            box-sizing: border-box;
+        }
+
+        .notes-list ul li button {
+            width: 40px;
+            height: 40px;
+            line-height: 40px;
+            flex-shrink: 0;
+            cursor: pointer;
+            border: none;
+            background-color: #2ec4b6;
+            border-radius: 0 5px 5px 0;
+            font-weight: 900;
+            color: #fefee3;
+            font-size: 20px;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 50px;
+            order: 1;
+            background-color: #fefee3;
+        }
+
+        #editor {
+            text-align: justify;
+            height: 450px;
+            font-size: 20px;
+            padding: 10px;
+        }
+
+        #save {
+            align-self: center;
+            padding: 10px 20px;
+            margin-top: 10px;
+            font-size: 16px;
+            font-weight: 900;
+            border-radius: 10px;
+            border: none;
+            background-color: #4c956c;
+            color: #fefee3;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        @media screen and (min-width: 768px) {
+
+            #wrap {
+                flex-direction: row;
+            }
+
+            .notes-list {
+                width: 20%;
+                order: 0;
+                box-shadow: 5px 0px 5px #666;
+            }
+
+            .main {
+                width: 80%;
+                order: 0;
+            }
+
+            #editor {
+                height: 500px;
+                font-size: 18px;
+            }
+
+            #save {
+                align-self: end;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <h1 style="text-align: center; line-height: 70px;">JavaScript系列八：第2課 ── 筆記應用程式</h1>
+
+    <div id="wrap">
+        <div class="notes-list">
+            <div class="title">
+                <h2>{{ text.noteList }}</h2>
+            </div>
+            <ul>
+                <li v-for="(note,index) in notes" :class="{pointer: note.active}">
+                    <p @click="switchNote(note)">{{ note.title }}</p>
+                    <button @click="deleteNote(note, index)">X</button>
+                </li>
+
+            </ul>
+        </div>
+        <div class="main">
+            <!-- 想追蹤CJK拼字階段的文字，所以不用v-model，改用@input監聽器 -->
+            <textarea name="" id="editor" cols="30" rows="10" ref="editor" @input="monitorNote"
+                :placeholder="text.placeholder"></textarea>
+
+            <button id="save" @click="saveNote">{{ text.noteCreate }}</button>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    text: {
+                        noteList: '筆記清單',
+                        noteCreate: '建立新筆記',
+                        noteDelete: 'X',
+                        placeholder: 'Some text here...'
+                    },
+                    notes: [],
+                    createdCount: 0,
+                    currentNote: {
+                        id: null,
+                        title: null,
+                        content: null,
+                        active: false
+                    }
+                }
+            },
+            watch: {
+                notes: {
+                    handler(newValue, oldValue) {
+                        localStorage.setItem('notebooks', JSON.stringify(this.notes));
+                    },
+                    deep: true
+                },
+                createdCount: {
+                    handler(newValue, oldValue) {
+                        localStorage.setItem('createdCount', JSON.stringify(this.createdCount));
+                    }
+                },
+                currentNote: {
+                    handler(newValue, oldValue) {
+                        localStorage.setItem('currentNote', JSON.stringify(this.currentNote));
+                    },
+                    deep: true
+                }
+            },
+            methods: {
+                saveNote() {
+                    // 一旦建立新筆記，就把舊筆記的pointer取消掉
+                    // 即便一次只會有一個pointer，但以防萬一，還是歷遍所有筆記，確認把active改成false
+                    for (let note of this.notes) {
+                        note.active = false;
+                    }
+
+                    let newNote = {
+                        id: ++this.createdCount,
+                        title: this.$refs.editor.value.slice(0, 25),
+                        content: this.$refs.editor.value,
+                        active: true
+                    }
+
+                    this.notes.push(newNote);
+
+                    this.currentNote = newNote;
+                },
+                deleteNote(note, index) {
+                    // 先刪掉再來確認刪掉的是不是當時正在啟用的筆記
+                    this.notes.splice(index, 1)
+
+                    // 如果剛好刪到目前正在啟用的note
+                    if (note.id === this.currentNote.id && note.active === true) {
+                        this.currentNote.id = null;
+                        this.currentNote.title = null;
+                        this.currentNote.content = null;
+
+                        this.$refs.editor.value = null;
+                    }
+                },
+                switchNote(note) {
+                    // 雖然一次只會有一個pointer，但為避免意外，將所有已建立的note的pointer給取消
+                    for (let note of this.notes) {
+                        note.active = false;
+                    }
+                    note.active = true;
+                    this.currentNote = note;
+
+                    this.$refs.editor.value = note.content;
+                },
+                monitorNote() {
+                    // 如果沒有選定任何一則筆記(如:首次使用本工具、刪到當時正在啟用的筆記)，打字就自動建立一個新筆記
+                    if (this.currentNote.id === null) {
+                        let newNote = {
+                            id: ++this.createdCount,
+                            title: this.$refs.editor.value.slice(0, 25),
+                            content: this.$refs.editor.value,
+                            active: true
+                        }
+
+                        this.currentNote = newNote;
+
+                        this.notes.push(newNote);
+                    }
+                    else {
+                        // 隨時取得目前編輯的筆記資料
+                        let newNote = {
+                            id: this.currentNote.id,
+                            title: this.$refs.editor.value.slice(0, 25),
+                            content: this.$refs.editor.value,
+                            active: true
+                        }
+                        // 目前資料也更新到currentNote，方便localStorage
+                        this.currentNote = newNote;
+
+                        for (let index in this.notes) {
+                            // 即時更新相同id對應的筆記
+                            if (this.notes[index].id === newNote.id) {
+                                this.notes[index] = newNote;
+
+                                // 如果backspace到沒有文字
+                                if (this.$refs.editor.value === '') {
+                                    this.notes.splice(index, 1);
+                                    this.currentNote.id = null;
+                                    this.currentNote.active = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            mounted() {
+                if (localStorage.getItem('notebooks') && localStorage.getItem('createdCount') && localStorage.getItem('currentNote')) {
+                    this.notes = JSON.parse(localStorage.getItem('notebooks'));
+                    this.createdCount = JSON.parse(localStorage.getItem('createdCount'));
+                    this.currentNote = JSON.parse(localStorage.getItem('currentNote'));
+
+                    // 復原關閉頁面時，最終畫面的樣貌
+                    this.$refs.editor.value = this.currentNote.content;
+                }
+            }
+        }).mount('#wrap')
+
+    </script>
+</body>
+
+</html>
