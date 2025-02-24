@@ -235,6 +235,8 @@
         const { createApp } = Vue;
         createApp({
             data() {
+                // API KEY
+                let key = '';
                 return {
                     locationsZh: [
                         '基隆市',
@@ -332,8 +334,10 @@
                 }
             },
             mounted() {
-                fetch('API KEY', { method: 'GET' })
+                this.key = prompt("請輸入金鑰 (API KEY)");
+                fetch('https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=' + this.key + '&format=JSON', { method: 'GET' })
                     .then((res) => {
+                        alert('Password correct!');
                         console.log(res.ok);
                         if (!res.ok) {
                             console.log(res.status);
@@ -359,7 +363,7 @@
                         this.updateBackground();
                     })
                     .catch((error) => {
-                        alert('請稍後再試。若您是在公開網頁（如：CodePen、GitHub）瀏覽，為確保API KEY隱私性，而不提供正確的fetch')
+                        alert('請稍後再試。若您是在公開網頁（如：CodePen、GitHub）瀏覽，為確保API KEY隱私性，而不提供正確的fetch API KEY')
                         console.log(error);
                     })
 
